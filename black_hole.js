@@ -1,33 +1,33 @@
 BOARD_SIZE = 6;
-P1_COLOR = "#FCC";
-P2_COLOR = "#CCF";
-currentPlayer = true;
+CIRCLES_IN_RACK = 10;
+P1_COLOR = "#FBB";
+P2_COLOR = "#BBF";
+currentPlayer = Math.random() > 0.5;
 currentNumber = 1;
+
+extend = function(child, parent) { for (var key in parent) { if ({}.hasOwnProperty.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
 Circle = (function() {
   Circle.RADIUS = 40;
+  Circle.FX = {none: 0, blink: 1}
 
-  function Circle(i, j) {
-    this.i = i;
-    this.j = j;
-    this.content = 0;
-    this.color = "#363636";
+  function Circle(value = 0, player = null) {
+    this.setValueAndPlayer(value, player);
+    this.fx = Circle.FX.none;
   }
-  
-  Circle.prototype.getX = function() {
-    return Circle.RADIUS + this.i*Circle.RADIUS*2 - this.j*Circle.RADIUS;
-  }
-  Circle.prototype.getY = function() {
-    return Circle.RADIUS + this.j*Circle.RADIUS*1.74;
-  }
-  
+
   Circle.prototype.isEmpty = function() {
-    return this.content == 0;
+    return this.value == 0;
   }
 
-  Circle.prototype.setContentAndColor = function(value, color) {
-    this.content = value;
-    this.color = color;
+  Circle.prototype.setValueAndPlayer = function(value, player) {
+    this.value = value;
+    this.player = player;
+    this.color = color("#363636");
+    if (player != null)
+      this.color = color(player ? P1_COLOR : P2_COLOR);
+    this.borderWeight = this.value + 1;
+    this.radius = Circle.RADIUS - Math.floor(this.value/2);
   }
 
   Circle.prototype.isMouseInside = function() {
@@ -37,34 +37,100 @@ Circle = (function() {
   }
   
   Circle.prototype.draw = function() {
-    var x = this.getX();
-    var y = this.getY();
-    fill(this.color);
-    ellipse(x, y, Circle.RADIUS*2, Circle.RADIUS*2);
-    fill(0);
-    if(this.content > 0) {
-      textSize(52);
-      text(this.content, x - Circle.RADIUS/3 - int(Math.log10(this.content))*17, y + Circle.RADIUS/2);
+    var color = this.color;
+    if (this.fx == Circle.FX.blink) {
+      this.colorBlend += this.colorBlendStep;
+      if (this.colorBlend <= 0 || this.colorBlend >= 1) this.colorBlendStep *= -1;
+      var color = lerpColor(this.color1, this.color2, this.colorBlend);
     }
     
-    textSize(14);
-    text(this.i + "/" + this.j, x - Circle.RADIUS/3, y + Circle.RADIUS/1.1);
+    var x = this.getX();
+    var y = this.getY();
+    fill(color);
+    strokeWeight(this.borderWeight);
+    ellipse(x, y, this.radius*2, this.radius*2);
+    fill(0);
+    if(this.value > 0) {
+      textSize(52);
+      text(this.value, x - Circle.RADIUS/3 - int(Math.log10(this.value))*17, y + Circle.RADIUS/2);
+    }
+  };
+  
+  Circle.prototype.stopFx = function() {
+    this.fx = Circle.FX.none;
+  };
+  
+  Circle.prototype.blink = function() {
+    this.fx = Circle.FX.blink;
+    this.color1 = this.color;
+    this.color2 = color(hue(this.color) + 5, saturation(this.color) + 90, brightness(this.color) + 25);
+    this.colorBlend = 0;
+    this.colorBlendStep = 0.02;
   };
   
   return Circle;
 })();
 
+BoardCircle = (function() {
+  extend(BoardCircle, Circle);
+
+  function BoardCircle(i, j) {
+    this.i = i;
+    this.j = j;
+    return BoardCircle.__super__.constructor.apply(this);
+  }
+  
+  BoardCircle.prototype.getX = function() {
+    return Circle.RADIUS*4 + this.i*Circle.RADIUS*2 - this.j*Circle.RADIUS;
+  }
+  BoardCircle.prototype.getY = function() {
+    return Circle.RADIUS + this.j*Circle.RADIUS*1.74;
+  }
+  
+  return BoardCircle;
+})();
+
+RackCircle = (function() {
+  extend(RackCircle, Circle);
+
+  function RackCircle(value, color) {
+    return RackCircle.__super__.constructor.apply(this, [value, color]);
+  }
+  
+  RackCircle.prototype.getX = function() {
+    var x = this.player ? Circle.RADIUS : Circle.RADIUS + 2*Circle.RADIUS*BOARD_SIZE + 4*Circle.RADIUS;
+    if(this.value > 1 && this.value % 2 == 0) x += this.player ? 1.74*Circle.RADIUS : -1.74*Circle.RADIUS;
+    return x;
+  }
+  RackCircle.prototype.getY = function() {
+    if (this.value == 1) return 2*Circle.RADIUS*this.value;
+    return Circle.RADIUS*this.value + Circle.RADIUS;
+  }
+
+  return RackCircle;
+})();
+
 
 function setup() {
-  var canvasSize = Circle.RADIUS * BOARD_SIZE * 2;
-  createCanvas(canvasSize, canvasSize);
+  colorMode(HSB, 255);
+  var boardEdgeLen = Circle.RADIUS * BOARD_SIZE;
+  createCanvas(3 * boardEdgeLen, 2 * boardEdgeLen);
   
   board = {};
   for (i=0; i<BOARD_SIZE; i++) {
     board[i] = {};
     for (j=0; j<=i; j++)
-      board[i][j] = new Circle(i,j);
+      board[i][j] = new BoardCircle(i,j);
   }
+  
+  racks = {true: [], false: []};
+  for (i=1; i<=CIRCLES_IN_RACK; i++) {
+    racks[true].push(new RackCircle(i, true));
+    racks[false].push(new RackCircle(i, false));
+  }
+  racks[currentPlayer][0].blink();
+  
+  gameResultText = "";
 }
 
 function draw() {
@@ -72,17 +138,61 @@ function draw() {
   for (i=0; i<BOARD_SIZE; i++)
     for (j=0; j<=i; j++)
       board[i][j].draw();
+  
+  for (i=0; i<racks[true].length; i++) racks[true][i].draw();
+  for (i=0; i<racks[false].length; i++) racks[false][i].draw();
+  
+  if (gameResultText != "") {
+    textSize(27);
+    text(gameResultText, 6*Circle.RADIUS, 1.74*Circle.RADIUS*BOARD_SIZE + 1.2*Circle.RADIUS);
+  }
 }
 
 function mousePressed() {
-  for (i=0; i<BOARD_SIZE; i++)
-    for (j=0; j<=i; j++) {
-      var c = board[i][j];
-      if (c.isMouseInside() && c.isEmpty()) {
-        c.setContentAndColor(Math.floor(currentNumber), currentPlayer ? P1_COLOR : P2_COLOR);
-        currentNumber += 0.5;
-        currentPlayer = !currentPlayer;
-        return;
+  if (currentNumber < CIRCLES_IN_RACK+1)
+    loop: for (i=0; i<BOARD_SIZE; i++)
+      for (j=0; j<=i; j++) {
+        var c = board[i][j];
+        if (c.isMouseInside() && c.isEmpty()) {
+          c.setValueAndPlayer(Math.floor(currentNumber), currentPlayer);
+          currentNumber += 0.5;
+          racks[currentPlayer].shift();
+          currentPlayer = !currentPlayer;
+          if (racks[currentPlayer].length > 0) racks[currentPlayer][0].blink();
+          else endGame();
+          break loop;
+        }
       }
+}
+
+function endGame() {
+  var blackHole = null;
+  loop: for (i=0; i<BOARD_SIZE; i++)
+    for (j=0; j<=i; j++)
+      if (board[i][j].isEmpty()) {
+        blackHole = board[i][j];
+        break loop;
     }
+  blackHole.color = color(0);
+
+  var neighbourhood = [
+    [-1,-1], [0,-1],
+    [-1, 0], [1, 0],
+    [ 0, 1], [1, 1]
+  ]  
+  var eatenCircles = neighbourhood.map(function(x) {
+    var col = board[blackHole.i + x[0]];
+    if (col) return col[blackHole.j + x[1]];
+  }).filter(function(x) { return x !== undefined });
+  
+  var scores = {true: 0, false: 0};
+  for(i=0; i<eatenCircles.length; i++) {
+    scores[eatenCircles[i].player] += eatenCircles[i].value;
+    eatenCircles[i].blink();
+  }
+  
+  var winningPlayer = scores[true] < scores[false];
+  gameResultText = "Player " + (winningPlayer ? 1 : 2) + " wins!";
+  if (scores[true] == scores[false]) gameResultText = "Game drawn!";
+  gameResultText += "  " + scores[true] + "/" + scores[false];
 }
