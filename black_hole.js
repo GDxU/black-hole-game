@@ -1,7 +1,7 @@
 BOARD_SIZE = 6;
 CIRCLES_IN_RACK = 10;
-P1_COLOR = "#FBB";
-P2_COLOR = "#BBF";
+PLAYERS = {true: {color: "#F88", name: "Red"},
+           false: {color: "#99F", name: "Blue"}};
 currentPlayer = Math.random() > 0.5;
 currentNumber = 1;
 
@@ -25,7 +25,7 @@ Circle = (function() {
     this.player = player;
     this.color = color("#363636");
     if (player != null)
-      this.color = color(player ? P1_COLOR : P2_COLOR);
+      this.color = color(PLAYERS[player].color);
     this.borderWeight = this.value + 1;
     this.radius = Circle.RADIUS - Math.floor(this.value/2);
   }
@@ -84,7 +84,7 @@ BoardCircle = (function() {
     return Circle.RADIUS*4 + this.i*Circle.RADIUS*2 - this.j*Circle.RADIUS;
   }
   BoardCircle.prototype.getY = function() {
-    return Circle.RADIUS + this.j*Circle.RADIUS*1.74;
+    return Circle.RADIUS + this.j*Circle.RADIUS*1.74 + 1;
   }
   
   return BoardCircle;
@@ -100,7 +100,7 @@ RackCircle = (function() {
   RackCircle.prototype.getX = function() {
     var x = this.player ? Circle.RADIUS : Circle.RADIUS + 2*Circle.RADIUS*BOARD_SIZE + 4*Circle.RADIUS;
     if(this.value > 1 && this.value % 2 == 0) x += this.player ? 1.74*Circle.RADIUS : -1.74*Circle.RADIUS;
-    return x;
+    return x + 1;
   }
   RackCircle.prototype.getY = function() {
     if (this.value == 1) return 2*Circle.RADIUS*this.value;
@@ -113,8 +113,8 @@ RackCircle = (function() {
 
 function setup() {
   colorMode(HSB, 255);
-  var boardEdgeLen = Circle.RADIUS * BOARD_SIZE;
-  createCanvas(3 * boardEdgeLen, 2 * boardEdgeLen);
+  var boardEdgeLen = Circle.RADIUS * BOARD_SIZE + 1;
+  createCanvas(3*boardEdgeLen, 2*boardEdgeLen);
   
   board = {};
   for (i=0; i<BOARD_SIZE; i++) {
@@ -134,7 +134,7 @@ function setup() {
 }
 
 function draw() {
-  background(230);
+  background(210);
   for (i=0; i<BOARD_SIZE; i++)
     for (j=0; j<=i; j++)
       board[i][j].draw();
@@ -192,7 +192,8 @@ function endGame() {
   }
   
   var winningPlayer = scores[true] < scores[false];
-  gameResultText = "Player " + (winningPlayer ? 1 : 2) + " wins!";
+  gameResultText = PLAYERS[winningPlayer].name + " wins!";
   if (scores[true] == scores[false]) gameResultText = "Game drawn!";
   gameResultText += "  " + scores[true] + "/" + scores[false];
 }
+
