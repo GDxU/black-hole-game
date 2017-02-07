@@ -13,6 +13,8 @@ Circle = (function() {
 
   function Circle(value = 0, player = null) {
     this.setValueAndPlayer(value, player);
+    this.x = this.calculateX();
+    this.y = this.calculateY();
     this.fx = Circle.FX.none;
   }
 
@@ -31,8 +33,8 @@ Circle = (function() {
   }
 
   Circle.prototype.isMouseInside = function() {
-    var dx = this.getX() - mouseX;
-    var dy = this.getY() - mouseY;
+    var dx = this.x - mouseX;
+    var dy = this.y - mouseY;
     return Math.sqrt(dx*dx + dy*dy) < Circle.RADIUS; 
   }
   
@@ -44,8 +46,8 @@ Circle = (function() {
       var color = lerpColor(this.color1, this.color2, this.colorBlend);
     }
     
-    var x = this.getX();
-    var y = this.getY();
+    var x = this.x;
+    var y = this.y;
     fill(color);
     strokeWeight(this.borderWeight);
     ellipse(x, y, this.radius*2, this.radius*2);
@@ -80,10 +82,10 @@ BoardCircle = (function() {
     return BoardCircle.__super__.constructor.apply(this);
   }
   
-  BoardCircle.prototype.getX = function() {
+  BoardCircle.prototype.calculateX = function() {
     return Circle.RADIUS*4 + this.i*Circle.RADIUS*2 - this.j*Circle.RADIUS;
   }
-  BoardCircle.prototype.getY = function() {
+  BoardCircle.prototype.calculateY = function() {
     return Circle.RADIUS + this.j*Circle.RADIUS*1.74 + 1;
   }
   
@@ -93,16 +95,16 @@ BoardCircle = (function() {
 RackCircle = (function() {
   extend(RackCircle, Circle);
 
-  function RackCircle(value, color) {
-    return RackCircle.__super__.constructor.apply(this, [value, color]);
+  function RackCircle(value, player) {
+    return RackCircle.__super__.constructor.apply(this, [value, player]);
   }
   
-  RackCircle.prototype.getX = function() {
+  RackCircle.prototype.calculateX = function() {
     var x = this.player ? Circle.RADIUS : Circle.RADIUS + 2*Circle.RADIUS*BOARD_SIZE + 4*Circle.RADIUS;
     if(this.value > 1 && this.value % 2 == 0) x += this.player ? 1.74*Circle.RADIUS : -1.74*Circle.RADIUS;
     return x + 1;
   }
-  RackCircle.prototype.getY = function() {
+  RackCircle.prototype.calculateY = function() {
     if (this.value == 1) return 2*Circle.RADIUS*this.value;
     return Circle.RADIUS*this.value + Circle.RADIUS;
   }
@@ -113,8 +115,8 @@ RackCircle = (function() {
 
 function setup() {
   colorMode(HSB, 255);
-  var boardEdgeLen = Circle.RADIUS * BOARD_SIZE + 1;
-  createCanvas(3*boardEdgeLen, 2*boardEdgeLen);
+  var boardSizeBase = Circle.RADIUS * BOARD_SIZE + 1;
+  createCanvas(3*boardSizeBase, 2*boardSizeBase);
   
   board = {};
   for (i=0; i<BOARD_SIZE; i++) {
